@@ -16,7 +16,7 @@ class SortManager:
 }
 
     def sort(self, algo: str, array: List[int]) -> Dict:
-        # Executes the sorting algorithm and tracks steps for visualization.
+        # Executes the sorting algorithms and tracks steps for visualization.
         if algo in self.algorithms:
             return self.algorithms[algo].sort(array)
         raise ValueError(f"Unknown algorithm: {algo}")
