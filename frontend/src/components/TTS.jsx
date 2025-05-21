@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 
-// This component/function handles: TTS
 const TTS = ({ text }) => {
   useEffect(() => {
     if (text) {

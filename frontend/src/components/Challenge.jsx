@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 
-// This component/function handles: Challenge
 const Challenge = ({ currentStep, onGuess }) => {
   const [guess, setGuess] = useState('');
 
-// This component/function handles: handleSubmit
   const handleSubmit = (e) => {
     e.preventDefault();
     onGuess(guess);

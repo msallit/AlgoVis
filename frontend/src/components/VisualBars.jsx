@@ -1,6 +1,5 @@
 import React from 'react';
 
-// This component/function handles: VisualBars
 const VisualBars = ({ array, highlight }) => {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', height: '220px', marginTop: '20px' }}>
