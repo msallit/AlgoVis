@@ -23,9 +23,11 @@ function App() {
 // This component/function handles: handleSort
   const handleSort = async () => {
     const parsedArray = array.split(',').map(Number);
-    const response = await axios.post(`http://localhost:8000/sort/${algorithm}`, {
-      array: parsedArray
-    });
+    const response = await axios.post(
+    `${process.env.REACT_APP_API_BASE}/sort/${algorithm}`,
+     { array: parsedArray });
+
+
     setSteps(response.data.steps);
     setMetrics(response.data.metrics);
     setCurrentArray(parsedArray);
