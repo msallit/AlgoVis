@@ -24,8 +24,10 @@ function App() {
   const handleSort = async () => {
     const parsedArray = array.split(',').map(Number);
     const response = await axios.post(
-    `${process.env.REACT_APP_API_BASE}/sort/${algorithm}`,
-     { array: parsedArray });
+  `https://algovis-1.onrender.com/sort/${algorithm}`,
+  { array: parsedArray }
+);
+
 
 
     setSteps(response.data.steps);
