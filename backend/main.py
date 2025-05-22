@@ -5,14 +5,14 @@ from typing import List
 from algorithms.sort_manager import SortManager
 from fastapi import Request
 import os
+import httpx
+import json
 from dotenv import load_dotenv
 import openai
 from fastapi.responses import StreamingResponse
 
 load_dotenv()#Load environment variables from .env file
 
-openai.api_key = os.getenv("OPENROUTER_API_KEY") # Set your OpenAI API key
-openai.api_base = "https://openrouter.ai/api/v1"  # Required to override OpenAI base
 
 app = FastAPI()
 sort_manager = SortManager()
@@ -38,23 +38,64 @@ def sort_array(algorithm: str, request: SortRequest):
 #Accepts a POST request with an array
 #Sends that array in a prompt to the LLM
 #Returns the LLM’s explanation as a JSON object
+# Why using the httpx instead of the official openai library? 
+  # I am using using OpenRouter, not OpenAI.com and OpenRouter is a proxy-like service that supports multiple models (like mistralai/mistral-7b-instruct) using the OpenAI API format — but it’s not officially supported by the OpenAI Python SDK.
 @app.post("/ai-suggest")
 async def ai_suggest(request: Request):
     data = await request.json()
     array = data.get("array", [])
-    prompt = f"Given the array: {array}, suggest the best sorting algorithm and explain why in 40 words in simple terms."
+    prompt = f"Given the array: {array}, suggest the best sorting algorithm and explain why in 30 words in simple terms."
+
+    print("Received request with array:", array, flush=True)
 
     def stream():
-        response = openai.ChatCompletion.create(
-            model="mistralai/mistral-7b-instruct",  # free fast model
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-            max_tokens=300,
-            stream=True
-        )
-        for chunk in response:
-            content = chunk["choices"][0].get("delta", {}).get("content")
-            if content:
-                yield content
+        api_key=os.getenv("OPENROUTER_API_KEY")
+        if not api_key:
+            yield "[Error]: Missing OpenRouter API key"
+            return
 
-    return StreamingResponse(stream(), media_type="text/plain")
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "http://localhost:3000",  # Optional for local dev
+            "X-Title": "AlgoVis"
+        }
+
+        payload = {
+            "model": "mistralai/mistral-7b-instruct",
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": True
+        }
+
+        try:
+            with httpx.stream("POST", "https://openrouter.ai/api/v1/chat/completions",
+                              headers=headers, json=payload, timeout=60) as r:
+                for raw_line in r.iter_lines():
+                    if not raw_line:
+                        continue
+
+                    # Decode safely
+                    line = raw_line.decode("utf-8") if isinstance(raw_line, bytes) else raw_line
+                    print("🔁 Got line:", line, flush=True)
+
+                    if line.startswith("data:"):
+                        content = line.replace("data: ", "")
+                        if content.strip() == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(content)
+                            delta = chunk["choices"][0]["delta"].get("content")
+                            if delta:
+                                print("Yielding chunk:", delta, flush=True)
+                                yield delta
+                        except Exception as e:
+                            print("JSON ParseError:", str(e), flush=True)
+                            yield f"\n[ParseError]: {str(e)}"
+        except Exception as e:
+            print("Request Error:", str(e), flush=True)
+            yield f"\n[Error]: {str(e)}"
+
+    return StreamingResponse(stream(), media_type="text/plain", headers={
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no"
+    })

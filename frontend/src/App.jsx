@@ -27,26 +27,23 @@ function App() {
  // Sends the user’s array to the backend at /ai-suggest.
 // Displays the returned AI-generated suggestion as it streams in real-time
 const handleAISuggestion = async () => {
-  // Clear previous data before making new AI request
+  // Clear previous state
   setSteps([]);
   setMetrics({});
   setCurrentArray([]);
   setCurrentStep(0);
   setExplanation('');
   setIsLoadingAI(true);
-  setAiSuggestion(''); // Reset AI suggestion display
+  setAiSuggestion('');
 
   try {
-    // Convert input string to an array of numbers
     const parsedArray = array.split(',').map(Number);
 
-    // Determine backend API URL based on environment
     const API_BASE =
       process.env.NODE_ENV === "development"
         ? "http://localhost:8000"
         : process.env.REACT_APP_API_BASE;
 
-    // 📡 Send POST request to backend to get AI-generated suggestion
     const response = await fetch(`${API_BASE}/ai-suggest`, {
       method: "POST",
       headers: {
@@ -55,31 +52,30 @@ const handleAISuggestion = async () => {
       body: JSON.stringify({ array: parsedArray }),
     });
 
-    //  Handle failed fetch
     if (!response.ok) throw new Error("Failed to fetch AI suggestion");
 
-    //  Stream the response back as it's being received
     const reader = response.body.getReader();
     const decoder = new TextDecoder("utf-8");
-    let result = "";
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    let done = false;
 
-      const chunk = decoder.decode(value, { stream: true });
-      result += chunk;
-      setAiSuggestion(prev => prev + chunk); //  Update live as it streams
+    while (!done) {
+      const { value, done: streamDone } = await reader.read();
+      done = streamDone;
+
+      if (value) {
+        const chunk = decoder.decode(value, { stream: true });
+        setAiSuggestion(prev => prev + chunk);
+      }
     }
 
   } catch (err) {
     console.error("AI fetch error:", err);
-    setAiSuggestion("Error fetching suggestion.");
+    setAiSuggestion("⚠️ Error fetching suggestion.");
   } finally {
-    setIsLoadingAI(false); // Stop loading spinner
+    setIsLoadingAI(false);
   }
 };
-
 
 
 // This component/function handles: handleSort
@@ -196,9 +192,20 @@ const handleAISuggestion = async () => {
         />
         Narrative Mode
       </label>
-        <button style={{ padding: '0.5rem 1rem', marginLeft: '1rem' }} onClick={handleAISuggestion} disabled={isLoadingAI}>
-          {isLoadingAI ? 'Optimizing...' : 'Suggest Best Sorting Algorith (AI)'}
-        </button>     
+      <button onClick={handleAISuggestion}
+      disabled={isLoadingAI}
+      aria-busy={isLoadingAI}
+      aria-disabled={isLoadingAI}
+      style={{
+        padding: '0.5rem 1rem',
+        marginLeft: '1rem',
+        opacity: isLoadingAI ? 0.6 : 1,
+        cursor: isLoadingAI ? 'not-allowed' : 'pointer'
+      }}
+    >
+      {isLoadingAI ? '🔄 Optimizing...' : 'Suggest Best Sorting Algorithm (AI)'}
+    </button>
+  
        <button style={{ padding: '0.5rem 1rem', marginLeft: '1rem' }} onClick={handleSort}>
         Sort
       </button>
