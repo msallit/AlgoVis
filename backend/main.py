@@ -11,7 +11,10 @@ from dotenv import load_dotenv
 import openai
 from fastapi.responses import StreamingResponse
 
-load_dotenv()#Load environment variables from .env file
+if os.getenv("RENDER") is None:  # Only load .env locally
+    from dotenv import load_dotenv
+    load_dotenv()
+print("Render API key (sanity):", os.getenv("OPENROUTER_API_KEY"), flush=True)
 
 
 app = FastAPI()
