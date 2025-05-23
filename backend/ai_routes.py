@@ -30,7 +30,7 @@ async def ai_suggest(request: Request):
             "Explain why in 30 words in simple terms."
         )
 
-        api_key = os.getenv("OPENROUTER_API_KEY")
+        api_key = os.getenv("OPENROUTER_API_KEY","").strip()
         if not api_key:
             return JSONResponse(status_code=500, content={
                 "error": "Missing OpenRouter API key. Set OPENROUTER_API_KEY in the environment."
@@ -42,7 +42,9 @@ async def ai_suggest(request: Request):
         }
 
         payload = {
-            "model": "mistral",
+            "model": "mistralai/mistral-7b-instruct",
+            "temperature": 0.0,
+            "max_tokens": 300,
             "messages": [
                 {"role": "system", "content": "You are a helpful assistant and sorting algorithm expert."},
                 {"role": "user", "content": prompt},

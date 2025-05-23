@@ -7,8 +7,8 @@ from algorithms.sort_manager import SortManager
 from dotenv import load_dotenv
 import os
 
-if os.getenv("RENDER") is None:
-    load_dotenv()
+# Load environment variables from .env file if running locally and not running on Render
+load_dotenv() if os.getenv("RENDER") is None else None
 
 from ai_routes import router
 

@@ -4,7 +4,6 @@ import VisualBars from './components/VisualBars';
 import TTS from './components/TTS';
 import Challenge from './components/Challenge';
 
-// This is the main function/component: App
 function App() {
   const [array, setArray] = useState('');
   const [algorithm, setAlgorithm] = useState('bubble');
@@ -19,75 +18,79 @@ function App() {
   const [userGuess, setUserGuess] = useState('');
   const [feedback, setFeedback] = useState('');
   const [stepHistory, setStepHistory] = useState([]);
-  const [aiSuggestion, setAiSuggestion] = useState("");
+  const [aiSuggestion, setAiSuggestion] = useState('');
   const [isLoadingAI, setIsLoadingAI] = useState(false);
 
+  const handleAISuggestion = async () => {
+    setSteps([]);
+    setMetrics({});
+    setCurrentArray([]);
+    setCurrentStep(0);
+    setExplanation('');
+    setIsLoadingAI(true);
+    setAiSuggestion('');
 
+    try {
+      const parsedArray = array.split(',').map(Number);
+      const API_BASE =
+        process.env.NODE_ENV === 'development'
+          ? 'http://localhost:8000'
+          : process.env.REACT_APP_API_BASE;
 
- // Sends the user’s array to the backend at /ai-suggest.
-// Displays the returned AI-generated suggestion as it streams in real-time
-const handleAISuggestion = async () => {
-  // Clear previous state
-  setSteps([]);
-  setMetrics({});
-  setCurrentArray([]);
-  setCurrentStep(0);
-  setExplanation('');
-  setIsLoadingAI(true);
-  setAiSuggestion('');
+      const response = await fetch(`${API_BASE}/ai-suggest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ array: parsedArray })
+      });
 
-  try {
-    const parsedArray = array.split(',').map(Number);
+      if (!response.ok) throw new Error('Failed to fetch AI suggestion');
 
-    const API_BASE =
-      process.env.NODE_ENV === "development"
-        ? "http://localhost:8000"
-        : process.env.REACT_APP_API_BASE;
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let result = '';
+      let done = false;
 
-    const response = await fetch(`${API_BASE}/ai-suggest`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ array: parsedArray }),
-    });
+      while (!done) {
+        const { value, done: streamDone } = await reader.read();
+        done = streamDone;
 
-    if (!response.ok) throw new Error("Failed to fetch AI suggestion");
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n').filter(line => line.startsWith('data:'));
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder("utf-8");
+          for (const line of lines) {
+            if (line === 'data: [DONE]') continue;
 
-    let done = false;
-
-    while (!done) {
-      const { value, done: streamDone } = await reader.read();
-      done = streamDone;
-
-      if (value) {
-        const chunk = decoder.decode(value, { stream: true });
-        setAiSuggestion(prev => prev + chunk);
+            try {
+              const parsed = JSON.parse(line.replace('data: ', ''));
+              const delta = parsed.choices?.[0]?.delta?.content;
+              if (delta) {
+                result += delta;
+                setAiSuggestion(prev => prev + delta);
+              }
+            } catch (err) {
+              console.error('Failed to parse chunk:', line, err);
+            }
+          }
+        }
       }
+    } catch (err) {
+      console.error('AI fetch error:', err);
+      setAiSuggestion('⚠️ Error fetching suggestion.');
+    } finally {
+      setIsLoadingAI(false);
     }
+  };
 
-  } catch (err) {
-    console.error("AI fetch error:", err);
-    setAiSuggestion("⚠️ Error fetching suggestion.");
-  } finally {
-    setIsLoadingAI(false);
-  }
-};
-
-
-// This component/function handles: handleSort
   const handleSort = async () => {
-    setAiSuggestion(""); // Clear previous AI suggestion
+    setAiSuggestion('');
     const parsedArray = array.split(',').map(Number);
     const response = await axios.post(
-  `https://algovis-1.onrender.com/sort/${algorithm}`,
-  { array: parsedArray }
-);
-
-
+      `https://algovis-1.onrender.com/sort/${algorithm}`,
+      { array: parsedArray }
+    );
 
     setSteps(response.data.steps);
     setMetrics(response.data.metrics);
@@ -101,7 +104,6 @@ const handleAISuggestion = async () => {
 
   useEffect(() => {
     if (steps.length > 0 && currentStep < steps.length && !challengeMode) {
-// This component/function handles: timer
       const timer = setTimeout(() => {
         const step = steps[currentStep];
         applyStep(step);
@@ -112,7 +114,6 @@ const handleAISuggestion = async () => {
     }
   }, [steps, currentStep, challengeMode]);
 
-// This component/function handles: applyStep
   const applyStep = (step) => {
     setExplanation(step.explanation || '');
     if (step.type === 'swap' && step.array) {
@@ -125,7 +126,6 @@ const handleAISuggestion = async () => {
     }
   };
 
-// This component/function handles: formatStep
   const formatStep = (step) => {
     const [a, b] = step.indices || step.values || [];
     const av = currentArray[a] ?? a;
@@ -141,7 +141,6 @@ const handleAISuggestion = async () => {
     }
   };
 
-// This component/function handles: handleGuess
   const handleGuess = (guess) => {
     const expected = steps[currentStep];
     const guessClean = guess.replace(/\s/g, '').toLowerCase();
@@ -192,29 +191,34 @@ const handleAISuggestion = async () => {
         />
         Narrative Mode
       </label>
-      <button onClick={handleAISuggestion}
-      disabled={isLoadingAI}
-      aria-busy={isLoadingAI}
-      aria-disabled={isLoadingAI}
-      style={{
-        padding: '0.5rem 1rem',
-        marginLeft: '1rem',
-        opacity: isLoadingAI ? 0.6 : 1,
-        cursor: isLoadingAI ? 'not-allowed' : 'pointer'
-      }}
-    >
-      {isLoadingAI ? '🔄 Optimizing...' : 'Suggest Best Sorting Algorithm (AI)'}
-    </button>
-  
-       <button style={{ padding: '0.5rem 1rem', marginLeft: '1rem' }} onClick={handleSort}>
+      <button
+        onClick={handleAISuggestion}
+        disabled={isLoadingAI}
+        aria-busy={isLoadingAI}
+        aria-disabled={isLoadingAI}
+        style={{
+          padding: '0.5rem 1rem',
+          marginLeft: '1rem',
+          opacity: isLoadingAI ? 0.6 : 1,
+          cursor: isLoadingAI ? 'not-allowed' : 'pointer'
+        }}
+      >
+        {isLoadingAI ? '🔄 Optimizing...' : 'Suggest Best Sorting Algorithm (AI)'}
+      </button>
+
+      <button
+        style={{ padding: '0.5rem 1rem', marginLeft: '1rem' }}
+        onClick={handleSort}
+      >
         Sort
       </button>
+
       {aiSuggestion && (
-  <div style={{ marginTop: "1rem", padding: "1rem", background: "#f5f5f5", borderRadius: "5px" }}>
-    <h3>AI Suggestion:</h3>
-    <p style={{ margin: "0.5rem 0", whiteSpace: "pre-wrap" }}>{aiSuggestion}</p>
-  </div>
-)}
+        <div style={{ marginTop: '1rem', padding: '1rem', background: '#f5f5f5', borderRadius: '5px' }}>
+          <h3>AI Suggestion:</h3>
+          <p style={{ margin: '0.5rem 0', whiteSpace: 'pre-wrap' }}>{aiSuggestion}</p>
+        </div>
+      )}
 
       {metrics && (
         <div style={{ marginTop: '1rem' }}>
